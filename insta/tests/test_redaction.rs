@@ -397,6 +397,71 @@ fn test_redact_recursive() {
     "###);
 }
 
+/// Test redacting fields in nested objects and arrays
+#[cfg(feature = "json")]
+#[test]
+fn test_redact_nested() {
+    #[derive(Serialize, Default)]
+    pub struct Node {
+        id: u64,
+        child: Option<Box<Node>>,
+        list: Vec<Node>,
+    }
+
+    let root = Node {
+        id: 0,
+        child: Some(Box::new(Node {
+            id: 1,
+            ..Default::default()
+        })),
+        list: vec![
+            Node {
+                id: 2,
+                ..Default::default()
+            },
+            Node {
+                id: 3,
+                child: Some(Box::new(Node {
+                    id: 4,
+                    ..Default::default()
+                })),
+                ..Default::default()
+            },
+        ],
+    };
+
+    assert_json_snapshot!(root, {
+        ".child.id" => "[id1]",
+        ".list[0].id" => "[id2]",
+        ".list[1].child.id" => "[id4]",
+    }, @r###"
+    {
+      "id": 0,
+      "child": {
+        "id": "[id1]",
+        "child": null,
+        "list": []
+      },
+      "list": [
+        {
+          "id": "[id2]",
+          "child": null,
+          "list": []
+        },
+        {
+          "id": 3,
+          "child": {
+            "id": "[id4]",
+            "child": null,
+            "list": []
+          },
+          "list": []
+        }
+      ]
+    }
+    "###);
+}
+
 #[cfg(feature = "yaml")]
 #[test]
 fn test_struct_array_redaction() {
